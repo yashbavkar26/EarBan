@@ -73,9 +73,10 @@ background-attachment: fixed;
 }}
 /* Logo positioning */
 .logo-container {{
-    position: absolute;
-    top: 0px;
-    right: 0px;
+    position: fixed;  /* stays fixed when scrolling */
+    top: 15px;        /* adjust distance from top */
+    right: 20px;      /* adjust distance from right */
+    z-index: 9999;    /* ensures it's always on top */
 }}
 .logo-container img {{
     width: 80px;
