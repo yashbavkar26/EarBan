@@ -74,8 +74,8 @@ background-attachment: fixed;
 /* Logo positioning */
 .logo-container {{
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 0px;
+    right: 0px;
 }}
 .logo-container img {{
     width: 80px;
@@ -90,7 +90,7 @@ background-attachment: fixed;
 """
 st.markdown(page_style, unsafe_allow_html=True)
 
-st.title("🎧 QuietCity – AI Noise Classifier")
+st.title("  QuietCity – AI Noise Classifier")
 st.markdown("""
 Detect environmental sounds, measure decibel levels, and assess WHO risk levels.
 """)
