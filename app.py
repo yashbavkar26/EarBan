@@ -33,9 +33,11 @@ class_names = load_class_names()
 
 # ---------------- Helper Functions ---------------- #
 def calculate_db(audio):
+    """Convert waveform to approximate dB SPL scale"""
     rms = np.sqrt(np.mean(audio**2))
-    db = 20 * np.log10(rms + 1e-6) + 90  # approximate scaling
-    return round(db, 2)
+    db = 20 * np.log10(rms + 1e-6)  # dBFS
+    db_spl = db + 94  # calibration offset (approximate for SPL)
+    return round(db_spl, 2)
 
 def classify_sound(audio):
     scores, embeddings, spectrogram = yamnet_model(audio)
@@ -44,12 +46,9 @@ def classify_sound(audio):
 
 # ---------------- Streamlit UI ---------------- #
 # Background image
-
-# Load image and encode it
 with open("pexels-simon73-1323550.jpg", "rb") as image_file:
     encoded_string = base64.b64encode(image_file.read()).decode()
 
-# Inject CSS
 page_bg_img = f"""
 <style>
 body {{
@@ -72,7 +71,6 @@ background-attachment: fixed;
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
-
 st.title("🎧 QuietCity – AI Noise Classifier")
 st.markdown("""
 Detect environmental sounds, measure decibel levels, and assess WHO risk levels.
@@ -82,7 +80,6 @@ Detect environmental sounds, measure decibel levels, and assess WHO risk levels.
 uploaded_file = st.file_uploader("📂 Upload a WAV file", type=["wav"])
 
 if uploaded_file:
-    # Load WAV
     wav_bytes = io.BytesIO(uploaded_file.read())
     sr, wav_data = wavfile.read(wav_bytes)
 
@@ -99,7 +96,7 @@ if uploaded_file:
     db_level = calculate_db(wav_data)
     sound_type = classify_sound(wav_data)
 
-    # WHO threshold
+    # WHO threshold classification
     if db_level < 55:
         status = "✅ Safe"
         color = "green"
@@ -110,26 +107,29 @@ if uploaded_file:
         status = "🚨 Harmful"
         color = "red"
 
-    # Display results in columns
+    # Display results
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("🔊 Sound Detected")
         st.markdown(f"**Class:** {sound_type}")
-        st.markdown(f"**Decibel Level:** {db_level} dB")
+        st.markdown(f"**Decibel Level:** {db_level} dB SPL")
     with col2:
         st.subheader("📊 WHO Risk Level")
-        st.markdown(f"<span style='color:{color}; font-size:24px; font-weight:bold'>{status}</span>", unsafe_allow_html=True)
+        st.markdown(
+            f"<span style='color:{color}; font-size:24px; font-weight:bold'>{status}</span>",
+            unsafe_allow_html=True
+        )
 
     # Plot waveform
     fig, ax = plt.subplots(figsize=(10, 3))
     ax.plot(wav_data, color="#1f77b4")
-    ax.set_title(f"Waveform | {db_level} dB", color="white")
+    ax.set_title(f"Waveform | {db_level} dB SPL", color="white")
     ax.set_xlabel("Samples", color="white")
     ax.set_ylabel("Amplitude", color="white")
     ax.tick_params(colors='white')
     st.pyplot(fig)
 
-    # Optional CSV logging
+    # CSV logging
     if st.button("💾 Save to CSV"):
         with open("noise_log.csv", "a", newline="") as f:
             writer = csv.writer(f)
