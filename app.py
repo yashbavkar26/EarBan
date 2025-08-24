@@ -9,6 +9,7 @@ from scipy.io import wavfile
 import io
 import csv
 import requests
+import base64 
 
 # ---------------- Load Model + Class Names ---------------- #
 @st.cache_resource
@@ -43,27 +44,34 @@ def classify_sound(audio):
 
 # ---------------- Streamlit UI ---------------- #
 # Background image
-page_bg_img = """
+
+# Load image and encode it
+with open("pexels-simon73-1323550.jpg", "rb") as image_file:
+    encoded_string = base64.b64encode(image_file.read()).decode()
+
+# Inject CSS
+page_bg_img = f"""
 <style>
-body {
-background-image: url('pexels-simon73-1323550.jpg');
+body {{
+background-image: url("data:image/jpg;base64,{encoded_string}");
 background-size: cover;
 background-attachment: fixed;
-}
-.stButton>button {
+}}
+.stButton>button {{
     background-color: #4CAF50;
     color: white;
     font-weight: bold;
-}
-.stApp {
+}}
+.stApp {{
     color: #FFFFFF;
     background-color: rgba(0,0,0,0.5);
     padding: 2rem;
     border-radius: 15px;
-}
+}}
 </style>
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
+
 
 st.title("🎧 EarBan – AI Noise Classifier")
 st.markdown("""
