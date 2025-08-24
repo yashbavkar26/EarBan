@@ -155,3 +155,16 @@ if uploaded_file:
             writer = csv.writer(f)
             writer.writerow([uploaded_file.name, sound_type, db_level, status])
         st.success("Data saved to noise_log.csv ✅")
+
+# ---------------- Footer / Credits ---------------- #
+st.markdown("""<hr style="margin-top:40px; margin-bottom:20px; border:1px solid #444;">""", unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <div style="text-align: center; color: #ccc; font-size: 16px;">
+        <strong>Created By:</strong> Team QuietStorm<br>
+        <strong>Members:</strong> Vighnesh Patil &nbsp; | &nbsp; Yash Bavkar
+    </div>
+    """,
+    unsafe_allow_html=True
+)
