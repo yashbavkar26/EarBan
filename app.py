@@ -10,6 +10,9 @@ import io
 import csv
 import requests
 import base64 
+from pydub import AudioSegment
+from pydub.utils import which
+import os
 
 # ---------------- Load Model + Class Names ---------------- #
 @st.cache_resource
@@ -44,12 +47,9 @@ def classify_sound(audio):
 
 # ---------------- Streamlit UI ---------------- #
 # Background image
-
-# Load image and encode it
 with open("pexels-simon73-1323550.jpg", "rb") as image_file:
     encoded_string = base64.b64encode(image_file.read()).decode()
 
-# Inject CSS
 page_bg_img = f"""
 <style>
 body {{
@@ -72,66 +72,89 @@ background-attachment: fixed;
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
-
 st.title("🎧 QuietCity – AI Noise Classifier")
 st.markdown("""
 Detect environmental sounds, measure decibel levels, and assess WHO risk levels.
 """)
 
-# File upload
-uploaded_file = st.file_uploader("📂 Upload a WAV file", type=["wav"])
+# ---------------- FFmpeg Check ---------------- #
+ffmpeg_path = which("ffmpeg")
+if ffmpeg_path is None:
+    possible_path = r"C:\ffmpeg\bin\ffmpeg.exe"
+    if os.path.exists(possible_path):
+        AudioSegment.converter = possible_path
+    else:
+        st.error(
+            "FFmpeg not found! Please install it and add to PATH: https://ffmpeg.org/download.html"
+        )
+        st.stop()
+else:
+    AudioSegment.converter = ffmpeg_path
+
+# ---------------- Audio Upload ---------------- #
+uploaded_file = st.file_uploader("📂 Upload an audio file", type=["wav","mp3"])
 
 if uploaded_file:
-    # Load WAV
-    wav_bytes = io.BytesIO(uploaded_file.read())
-    sr, wav_data = wavfile.read(wav_bytes)
+    try:
+        # Convert any format to WAV
+        audio = AudioSegment.from_file(uploaded_file)
+        
+        # Export to WAV in memory
+        wav_io = io.BytesIO()
+        audio.export(wav_io, format="wav")
+        wav_io.seek(0)
+        
+        # Convert AudioSegment to NumPy array for analysis
+        samples = np.array(audio.get_array_of_samples())
 
-    # Convert to mono
-    if wav_data.ndim > 1:
-        wav_data = np.mean(wav_data, axis=1)
+        # Convert to mono if stereo
+        if audio.channels > 1:
+         samples = samples.reshape((-1, audio.channels))
+         samples = samples.mean(axis=1)
 
-    # Normalize to float32
-    wav_data = wav_data.astype(np.float32)
-    if np.max(np.abs(wav_data)) > 0:
-        wav_data = wav_data / np.max(np.abs(wav_data))
+        # Normalize to float32 (-1.0 to 1.0)
+        wav_data = samples.astype(np.float32) / (2**(8*audio.sample_width - 1))       
+        
+        # Analysis
+        db_level = calculate_db(wav_data)
+        sound_type = classify_sound(wav_data)
+        
+        # WHO risk
+        if db_level < 55:
+            status = "✅ Safe"
+            color = "green"
+        elif db_level < 70:
+            status = "⚠️ Moderate"
+            color = "orange"
+        else:
+            status = "🚨 Harmful"
+            color = "red"
 
-    # Run analysis
-    db_level = calculate_db(wav_data)
-    sound_type = classify_sound(wav_data)
+        # Display
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("🔊 Sound Detected")
+            st.markdown(f"**Class:** {sound_type}")
+            st.markdown(f"**Decibel Level:** {db_level} dB")
+        with col2:
+            st.subheader("📊 WHO Risk Level")
+            st.markdown(f"<span style='color:{color}; font-size:24px; font-weight:bold'>{status}</span>", unsafe_allow_html=True)
 
-    # WHO threshold
-    if db_level < 55:
-        status = "✅ Safe"
-        color = "green"
-    elif db_level < 70:
-        status = "⚠️ Moderate"
-        color = "orange"
-    else:
-        status = "🚨 Harmful"
-        color = "red"
+        # Plot waveform
+        fig, ax = plt.subplots(figsize=(10, 3))
+        ax.plot(wav_data, color="#1f77b4")
+        ax.set_title(f"Waveform | {db_level} dB", color="white")
+        ax.set_xlabel("Samples", color="white")
+        ax.set_ylabel("Amplitude", color="white")
+        ax.tick_params(colors='white')
+        st.pyplot(fig)
 
-    # Display results in columns
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("🔊 Sound Detected")
-        st.markdown(f"**Class:** {sound_type}")
-        st.markdown(f"**Decibel Level:** {db_level} dB")
-    with col2:
-        st.subheader("📊 WHO Risk Level")
-        st.markdown(f"<span style='color:{color}; font-size:24px; font-weight:bold'>{status}</span>", unsafe_allow_html=True)
+        # CSV logging
+        if st.button("💾 Save to CSV"):
+            with open("noise_log.csv", "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([uploaded_file.name, sound_type, db_level, status])
+            st.success("Data saved to noise_log.csv ✅")
 
-    # Plot waveform
-    fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(wav_data, color="#1f77b4")
-    ax.set_title(f"Waveform | {db_level} dB", color="white")
-    ax.set_xlabel("Samples", color="white")
-    ax.set_ylabel("Amplitude", color="white")
-    ax.tick_params(colors='white')
-    st.pyplot(fig)
-
-    # Optional CSV logging
-    if st.button("💾 Save to CSV"):
-        with open("noise_log.csv", "a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([uploaded_file.name, sound_type, db_level, status])
-        st.success("Data saved to noise_log.csv ✅")
+    except Exception as e:
+        st.error(f"Failed to process audio: {e}")
