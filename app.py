@@ -47,12 +47,16 @@ def classify_sound(audio):
 # ---------------- Streamlit UI ---------------- #
 # Background image
 with open("pexels-simon73-1323550.jpg", "rb") as image_file:
-    encoded_string = base64.b64encode(image_file.read()).decode()
+    encoded_bg = base64.b64encode(image_file.read()).decode()
 
-page_bg_img = f"""
+# Logo image
+with open("logo.jpg", "rb") as image_file:
+    encoded_logo = base64.b64encode(image_file.read()).decode()
+
+page_style = f"""
 <style>
 body {{
-background-image: url("data:image/jpg;base64,{encoded_string}");
+background-image: url("data:image/jpg;base64,{encoded_bg}");
 background-size: cover;
 background-attachment: fixed;
 }}
@@ -67,9 +71,24 @@ background-attachment: fixed;
     padding: 2rem;
     border-radius: 15px;
 }}
+/* Logo positioning */
+.logo-container {{
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}}
+.logo-container img {{
+    width: 80px;
+    border-radius: 10px;
+    box-shadow: 0px 0px 6px rgba(0,0,0,0.5);
+}}
 </style>
+
+<div class="logo-container">
+    <img src="data:image/jpg;base64,{encoded_logo}">
+</div>
 """
-st.markdown(page_bg_img, unsafe_allow_html=True)
+st.markdown(page_style, unsafe_allow_html=True)
 
 st.title("🎧 QuietCity – AI Noise Classifier")
 st.markdown("""
