@@ -73,7 +73,7 @@ background-attachment: fixed;
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
 
-st.title("🎧 EarBan – AI Noise Classifier")
+st.title("🎧 QuietCity – AI Noise Classifier")
 st.markdown("""
 Detect environmental sounds, measure decibel levels, and assess WHO risk levels.
 """)
