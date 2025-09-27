@@ -16,6 +16,7 @@ import pandas as pd
 import folium
 from streamlit_folium import st_folium
 from folium.plugins import HeatMap
+from guidelines import get_who_guidelines, get_emergency_contacts
 
 # ---------------- Load Model + Class Names ---------------- #
 @st.cache_resource
@@ -102,6 +103,21 @@ st.title("  QuietCity – AI Noise Classifier")
 st.markdown("""
 Detect environmental sounds, measure decibel levels, and assess WHO risk levels.
 """)
+# WHO Guidelines and Emergency Contacts
+st.sidebar.title("Noise Pollution Help")
+
+# WHO Guidelines Dropdown
+with st.sidebar.expander("📘 WHO Guidelines"):
+    guidelines = get_who_guidelines()
+    for k, v in guidelines.items():
+        st.markdown(f"**{k}:** {v}")
+
+# Emergency Contacts Dropdown
+with st.sidebar.expander("☎️ Emergency Contacts"):
+    contacts = get_emergency_contacts()
+    for k, v in contacts.items():
+        st.markdown(f"**{k}:** {v}")
+
 
 # File upload
 uploaded_file = st.file_uploader("📂 Upload a WAV file", type=["wav"])
