@@ -1,4 +1,4 @@
-# app.py — EarBan: AI Noise Monitor (SDG 11) with improved UI
+# app.py — EarBan: AI Noise Monitor (SDG 11) with improved UI + Heatmap
 
 import streamlit as st
 import tensorflow as tf
@@ -9,7 +9,13 @@ from scipy.io import wavfile
 import io
 import csv
 import requests
-import base64 
+import base64
+import os
+import librosa
+import pandas as pd
+import folium
+from streamlit_folium import st_folium
+from folium.plugins import HeatMap
 
 # ---------------- Load Model + Class Names ---------------- #
 @st.cache_resource
@@ -41,8 +47,9 @@ def calculate_db(audio):
 
 def classify_sound(audio):
     scores, embeddings, spectrogram = yamnet_model(audio)
-    top_class = class_names[scores.numpy().mean(axis=0).argmax()]
-    return top_class
+    scores_np = scores.numpy()
+    top_class_idx = np.argmax(np.mean(scores_np, axis=0))
+    return class_names[top_class_idx]
 
 # ---------------- Streamlit UI ---------------- #
 # Background image
@@ -73,10 +80,10 @@ background-attachment: fixed;
 }}
 /* Logo positioning */
 .logo-container {{
-    position: fixed;  /* stays fixed when scrolling */
-    top: 100px;        /* adjust distance from top */
-    right: 1300px;      /* adjust distance from right */
-    z-index: 9999;    /* ensures it's always on top */
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 9999;
 }}
 .logo-container img {{
     width: 80px;
@@ -111,6 +118,10 @@ if uploaded_file:
     wav_data = wav_data.astype(np.float32)
     if np.max(np.abs(wav_data)) > 0:
         wav_data = wav_data / np.max(np.abs(wav_data))
+
+    # Resample to 16kHz for YAMNet
+    wav_data = librosa.resample(wav_data, orig_sr=sr, target_sr=16000)
+    sr = 16000
 
     # Run analysis
     db_level = calculate_db(wav_data)
@@ -149,12 +160,42 @@ if uploaded_file:
     ax.tick_params(colors='white')
     st.pyplot(fig)
 
+    # Location input
+    lat = st.number_input("📍 Enter Latitude", value=19.0760, format="%.6f")
+    lon = st.number_input("📍 Enter Longitude", value=72.8777, format="%.6f")
+
     # CSV logging
     if st.button("💾 Save to CSV"):
-        with open("noise_log.csv", "a", newline="") as f:
+        log_file = "noise_log.csv"
+        file_exists = os.path.isfile(log_file)
+
+        with open(log_file, "a", newline="",encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([uploaded_file.name, sound_type, db_level, status])
+            if not file_exists:
+                writer.writerow(["Filename", "Class", "Decibel Level", "Risk Status", "Latitude", "Longitude"])
+            writer.writerow([uploaded_file.name, sound_type, db_level, status, lat, lon])
         st.success("Data saved to noise_log.csv ✅")
+
+# ---------------- Heatmap Section ---------------- #
+st.subheader("🌍 Noise Pollution Heatmap")
+
+try:
+    df = pd.read_csv("noise_log.csv")
+
+    if not df.empty:
+        # Center map at average coordinates
+        map_center = [df["Latitude"].mean(), df["Longitude"].mean()]
+        m = folium.Map(location=map_center, zoom_start=12)
+
+        # Add heatmap based on decibel level
+        heat_data = [[row["Latitude"], row["Longitude"], row["Decibel Level"]] for _, row in df.iterrows()]
+        HeatMap(heat_data, radius=15, max_zoom=13).add_to(m)
+
+        st_folium(m, width=700, height=500)
+    else:
+        st.info("No data logged yet. Upload and save some noise samples.")
+except FileNotFoundError:
+    st.info("No data file found. Save some noise data first.")
 
 # ---------------- Footer / Credits ---------------- #
 st.markdown("""<hr style="margin-top:40px; margin-bottom:20px; border:1px solid #444;">""", unsafe_allow_html=True)
